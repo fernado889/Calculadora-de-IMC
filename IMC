@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Calculadora de IMC</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f0f8ff;
+      margin: 0;
+      padding: 0;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+
+    header {
+      background-color: #007acc;
+      color: white;
+      padding: 1rem;
+    }
+
+    main {
+      padding: 2rem;
+      flex-grow: 1;
+    }
+
+    input {
+      padding: 0.5rem;
+      margin-bottom: 1rem;
+      width: 80%;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+
+    button {
+      padding: 0.8rem;
+      margin: 0.5rem;
+      background-color: #28a745;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+
+    #resultado {
+      margin-top: 1rem;
+      font-size: 1.2rem;
+      font-weight: bold;
+    }
+
+    #tabela-imc {
+      margin-top: 2rem;
+    }
+
+    #tabela-imc table {
+      margin: 0 auto;
+      border-collapse: collapse;
+    }
+
+    #tabela-imc th, #tabela-imc td {
+      border: 1px solid #000;
+      padding: 0.5rem 1rem;
+    }
+
+    #dicas-saude {
+      margin-top: 2rem;
+      text-align: left;
+      max-width: 500px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    footer {
+      background: #007acc;
+      color: white;
+      padding: 0.8rem;
+      font-size: 0.9rem;
+    }
+
+    /* Botão vermelho para limpar histórico */
+    .btn-danger {
+      background-color: #dc3545;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Calculadora de IMC</h1>
+  </header>
+
+  <main>
+    <label for="peso">Peso (kg):</label>
+    <input type="number" id="peso" placeholder="Ex: 70" />
+
+    <label for="altura">Altura (m):</label>
+    <input type="number" id="altura" step="0.01" placeholder="Ex: 1.75" />
+
+    <button onclick="calcularIMC()">Calcular IMC</button>
+    <button onclick="limparCampos()">Limpar Campos</button>
+
+    <div id="resultado"></div>
+
+    <section id="historico-section">
+      <h2>Histórico</h2>
+      <ul id="historico-list"></ul>
+      <canvas id="graficoIMC" width="300" height="150"></canvas>
+      <br />
+      <button class="btn-danger" onclick="limparHistorico()">Limpar Histórico</button>
+    </section>
+
+    <button onclick="exportarPDF()">Exportar para PDF</button>
+
+    <section id="tabela-imc">
+      <h2>Tabela Oficial de IMC (Ministério da Saúde)</h2>
+      <table>
+        <tr><th>IMC</th><th>Classificação</th></tr>
+        <tr><td>Menor que 18,5</td><td>Magreza</td></tr>
+        <tr><td>18,5 - 24,9</td><td>Normal</td></tr>
+        <tr><td>25,0 - 29,9</td><td>Sobrepeso</td></tr>
+        <tr><td>30,0 - 34,9</td><td>Obesidade grau I</td></tr>
+        <tr><td>35,0 - 39,9</td><td>Obesidade grau II</td></tr>
+        <tr><td>Maior que 40</td><td>Obesidade grau III</td></tr>
+      </table>
+    </section>
+
+    <section id="dicas-saude">
+      <h2>Dicas de Saúde</h2>
+      <ul>
+        <li>Mantenha uma alimentação equilibrada.</li>
+        <li>Pratique exercícios físicos regularmente.</li>
+        <li>Durma bem e evite o estresse.</li>
+        <li>Evite alimentos ultraprocessados.</li>
+        <li>Beba bastante água diariamente.</li>
+      </ul>
+    </section>
+  </main>
+
+  <footer>
+    Desenvolvido por Fernando Assunção
+  </footer>
+
+  <!-- Bibliotecas CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+  <script>
+    function calcularIMC() {
+      const peso = parseFloat(document.getElementById("peso").value);
+      const altura = parseFloat(document.getElementById("altura").value);
+      const resultado = document.getElementById("resultado");
+
+      if (!peso || !altura || altura <= 0) {
+        resultado.innerText = "Preencha os campos corretamente.";
+        resultado.style.color = "red";
+        return;
+      }
+
+      const imc = peso / (altura * altura);
+      let classificacao = "";
+
+      if (imc < 18.5) classificacao = "Abaixo do peso";
+      else if (imc < 24.9) classificacao = "Peso normal";
+      else if (imc < 29.9) classificacao = "Sobrepeso";
+      else if (imc < 34.9) classificacao = "Obesidade grau I";
+      else if (imc < 39.9) classificacao = "Obesidade grau II";
+      else classificacao = "Obesidade grau III";
+
+      const info = {
+        data: new Date().toLocaleString(),
+        peso,
+        altura,
+        imc: imc.toFixed(2),
+        classificacao
+      };
+
+      resultado.innerHTML = `Seu IMC é <strong>${info.imc}</strong> - ${info.classificacao}`;
+      salvarHistorico(info);
+      renderizarHistorico();
+    }
+
+    function limparCampos() {
+      document.getElementById("peso").value = "";
+      document.getElementById("altura").value = "";
+      document.getElementById("resultado").innerHTML = "";
+    }
+
+    function salvarHistorico(info) {
+      const historico = JSON.parse(localStorage.getItem("historicoIMC")) || [];
+      historico.push(info);
+      localStorage.setItem("historicoIMC", JSON.stringify(historico));
+    }
+
+    function renderizarHistorico() {
+      const historico = JSON.parse(localStorage.getItem("historicoIMC")) || [];
+      const lista = document.getElementById("historico-list");
+      const ctx = document.getElementById("graficoIMC").getContext("2d");
+
+      lista.innerHTML = "";
+      let labels = [], valores = [];
+
+      historico.forEach((item) => {
+        labels.push(item.data.split(",")[0]);
+        valores.push(parseFloat(item.imc));
+        const li = document.createElement("li");
+        li.innerText = `${item.data} - IMC: ${item.imc} (${item.classificacao})`;
+        lista.appendChild(li);
+      });
+
+      if (window.meuGrafico) {
+        window.meuGrafico.destroy();
+      }
+
+      window.meuGrafico = new Chart(ctx, {
+        type: "line",
+        data: {
+          labels,
+          datasets: [{
+            label: "IMC",
+            data: valores,
+            borderColor: "#007acc",
+            fill: false
+          }]
+        }
+      });
+    }
+
+    function exportarPDF() {
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF();
+      const historico = JSON.parse(localStorage.getItem("historicoIMC")) || [];
+
+      doc.setFontSize(16);
+      doc.text("Histórico de IMC", 10, 10);
+
+      doc.setFontSize(12);
+      historico.forEach((item, i) => {
+        doc.text(
+          `${item.data} - Peso: ${item.peso}kg - Altura: ${item.altura}m - IMC: ${item.imc} (${item.classificacao})`,
+          10,
+          20 + i * 10
+        );
+      });
+
+      doc.save("historico-imc.pdf");
+    }
+
+    function limparHistorico() {
+      if(confirm("Tem certeza que deseja limpar todo o histórico?")) {
+        localStorage.removeItem("historicoIMC");
+        renderizarHistorico();
+      }
+    }
+
+    window.onload = renderizarHistorico;
+  </script>
+</body>
+</html>
